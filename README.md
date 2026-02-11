@@ -1,83 +1,95 @@
-# ClawShield
+ClawShield
 
-Security audit tool for OpenClaw deployments.
+ClawShield is a security audit tool for OpenClaw deployments.
 
-ClawShield performs static security analysis of OpenClaw configurations and host posture to detect common high-risk misconfigurations.
+It performs static security analysis of OpenClaw configurations and host posture to detect common high-risk misconfigurations.
 
-## What ClawShield Checks
+ClawShield is the first module released under the PolicyGate umbrella — a runtime policy enforcement framework for AI agents.
 
-**Network Exposure**
-- Public bind address (`0.0.0.0`, `::`)
-- Authentication disabled while publicly exposed
+What ClawShield Checks
+Network Exposure
 
-**Container Posture**
-- Containers running as root
-- Containers running in privileged mode
+Public bind address (0.0.0.0, ::)
 
-**Secrets Handling**
-- API keys present in `.env` files
-- API key references inside config files
+Authentication disabled while publicly exposed
 
-**File Permissions**
-- World-writable config files
-- World-readable or world-writable `.env` files
+Container Posture
 
-## What ClawShield Does NOT Check
+Containers running as root
 
-- Runtime exploitability
-- Kernel vulnerabilities
-- Docker daemon hardening
-- Firewall configuration
-- Intrusion detection
-- Secrets entropy analysis
-- Cloud IAM posture
+Containers running in privileged mode
+
+Secrets Handling
+
+API keys present in .env files
+
+API key references inside config files
+
+File Permissions
+
+World-writable config files
+
+World-readable or world-writable .env files
+
+What ClawShield Does NOT Check
+
+Runtime exploitability
+
+Kernel vulnerabilities
+
+Docker daemon hardening
+
+Firewall configuration
+
+Intrusion detection
+
+Secrets entropy analysis
+
+Cloud IAM posture
 
 ClawShield is a static audit tool, not a runtime protection system.
 
-## Installation
+Installation (Development)
 
-```
-pipx install clawshield
-```
+Clone the repository:
 
-or
+git clone https://github.com/policygate/clawshield.git
+cd clawshield
 
-```
-pip install clawshield
-```
 
-## Usage
+Install locally:
 
-```
-clawshield path/to/openclaw.yaml
-```
+pip install -e .
+
+Usage
+
+Run audit:
+
+python -m clawshield path/to/openclaw.yaml
+
 
 JSON mode:
 
-```
-clawshield --json path/to/openclaw.yaml
-```
+python -m clawshield --json path/to/openclaw.yaml
+
 
 Control exit threshold:
 
-```
-clawshield --fail-on high path/to/openclaw.yaml
-```
+python -m clawshield --fail-on high path/to/openclaw.yaml
 
-## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0    | No findings at or above threshold |
-| 1    | Findings at or above threshold |
+Severity ranking:
 
-## JSON Output Contract
+low < medium < high < critical
 
-```json
+Exit Codes
+Code	Meaning
+0	No findings at or above threshold
+1	Findings at or above threshold
+JSON Output Contract (v0.1)
 {
   "meta": {
     "schema_version": "0.1",
-    "tool_version": "0.3.0",
     "policy_path": "...",
     "warnings": []
   },
@@ -96,14 +108,44 @@ clawshield --fail-on high path/to/openclaw.yaml
     }
   ]
 }
-```
 
-Schema is versioned and stable within minor releases.
 
-## Roadmap
+The JSON schema is versioned and locked via golden tests to prevent drift.
 
-- Continuous monitoring mode
-- CI integration
-- Agent-agnostic security profile
-- Advanced secrets detection
-- Automated remediation plans
+Architecture
+
+ClawShield consists of:
+
+Scanners → Collect facts from runtime and configuration
+
+Policy Engine → Evaluates YAML rules against collected facts
+
+Structured Output → Designed for automation and CI pipelines
+
+Scanners are modular and isolated from the engine core.
+
+Roadmap
+
+Continuous monitoring mode
+
+CI integration
+
+Agent-agnostic security profile
+
+Advanced secrets detection
+
+Automated remediation plans
+
+Status
+
+Early release. Actively evolving.
+
+Feedback and contributions welcome.
+
+License
+
+Apache 2.0
+
+Security Disclaimer
+
+ClawShield surfaces rule-based misconfigurations according to the active policy set. It does not guarantee system security.
