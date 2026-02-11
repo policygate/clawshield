@@ -1,0 +1,73 @@
+schema_version: 0.1
+
+profile:
+  id: "vps-public"
+  title: "VPS Public Hardening"
+  description: "Safe configuration for public-facing deployments."
+  applies_to:
+    runtimes: ["openclaw"]
+    environments: ["vps", "cloud"]
+
+defaults:
+  severity_threshold: "low"
+  autofix_max_severity: "high"
+  require_confirmation: true
+
+rules:
+  - id: "NET-001"
+    title: "Runtime bound to public interface without authentication"
+    severity: "critical"
+    confidence: "high"
+    condition:
+      all:
+        - fact: "network.bind_address"
+          op: "in"
+          value: ["0.0.0.0", "::"]
+        - fact: "runtime.auth_enabled"
+          op: "eq"
+          value: false
+    actions:
+      recommended:
+        - id: "ACT-ENABLE-AUTH"
+        - id: "ACT-ADD-REVERSE-PROXY"
+      autofix:
+        - id: "ACT-BIND-LOCALHOST"
+
+  - id: "DOC-001"
+    title: "Container running as root with elevated privileges"
+    severity: "high"
+    confidence: "medium"
+    condition:
+      any:
+        - fact: "docker.user"
+          op: "eq"
+          value: "root"
+        - fact: "docker.privileged"
+          op: "eq"
+          value: true
+    actions:
+      recommended:
+        - id: "ACT-DOCKER-DROP-CAPS"
+      autofix:
+        - id: "ACT-PATCH-COMPOSE-HARDEN"
+
+actions_catalog:
+  - id: "ACT-BIND-LOCALHOST"
+    type: "remediation"
+    handler: "openclaw_config_patcher.bind_localhost"
+
+  - id: "ACT-ENABLE-AUTH"
+    type: "remediation"
+    handler: "openclaw_config_patcher.enable_auth"
+
+  - id: "ACT-ADD-REVERSE-PROXY"
+    type: "instruction"
+    handler: "proxy_template.generate"
+
+  - id: "ACT-DOCKER-DROP-CAPS"
+    type: "instruction"
+    handler: "docker_hardening.recommend_drop_caps"
+
+  - id: "ACT-PATCH-COMPOSE-HARDEN"
+    type: "remediation"
+    handler: "compose_patcher.apply_hardening"

@@ -1,0 +1,75 @@
+schema_version: 0.1
+
+rules:
+  - id: "NET-001"
+    title: "Runtime bound to public interface without authentication"
+    severity: "critical"
+    confidence: "high"
+    condition:
+      all:
+        - fact: "network.bind_address"
+          op: "in"
+          value: ["0.0.0.0", "::"]
+        - fact: "runtime.auth_enabled"
+          op: "eq"
+          value: false
+    actions:
+      recommended:
+        - id: "ACT-ENABLE-AUTH"
+        - id: "ACT-ADD-REVERSE-PROXY"
+      autofix:
+        - id: "ACT-BIND-LOCALHOST"
+
+  - id: "DOC-001"
+    title: "Host has containers running as root or with elevated privileges"
+    severity: "high"
+    confidence: "medium"
+    condition:
+      any:
+        - fact: "docker.user"
+          op: "eq"
+          value: "root"
+        - fact: "docker.privileged"
+          op: "eq"
+          value: true
+    actions:
+      recommended:
+        - id: "ACT-DOCKER-DROP-CAPS"
+      autofix:
+        - id: "ACT-PATCH-COMPOSE-HARDEN"
+
+  - id: "SEC-001"
+    title: "Potential API keys stored in plaintext in OpenClaw config directory"
+    severity: "high"
+    confidence: "medium"
+    condition:
+      any:
+        - fact: "secrets.api_key_in_env_file"
+          op: "eq"
+          value: true
+        - fact: "secrets.api_key_in_config"
+          op: "eq"
+          value: true
+    actions:
+      recommended:
+        - id: "ACT-MOVE-SECRETS-TO-VAULT"
+        - id: "ACT-REDACT-LOGS"
+
+  - id: "FILE-001"
+    title: "Configuration or secrets file is world-readable or world-writable"
+    severity: "high"
+    confidence: "high"
+    condition:
+      any:
+        - fact: "files.config_world_writable"
+          op: "eq"
+          value: true
+        - fact: "files.env_world_writable"
+          op: "eq"
+          value: true
+        - fact: "files.env_world_readable"
+          op: "eq"
+          value: true
+    actions:
+      recommended:
+        - id: "ACT-RESTRICT-FILE-PERMISSIONS"

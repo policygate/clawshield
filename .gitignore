@@ -1,0 +1,12 @@
+# Local tooling
+.claude/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual envs
+.venv/
+venv/
+ENV/
