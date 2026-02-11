@@ -1,5 +1,9 @@
 ClawShield
 
+[![PyPI version](https://img.shields.io/pypi/v/clawshield.svg)](https://pypi.org/project/clawshield/)
+[![Python versions](https://img.shields.io/pypi/pyversions/clawshield.svg)](https://pypi.org/project/clawshield/)
+[![CI](https://github.com/policygate/clawshield/actions/workflows/ci.yml/badge.svg)](https://github.com/policygate/clawshield/actions)
+
 ClawShield is a security audit tool for OpenClaw deployments.
 
 It performs static security analysis of OpenClaw configurations and host posture to detect common high-risk misconfigurations.
