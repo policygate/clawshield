@@ -1,10 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "clawshield"
 version = "0.1.0"
 description = "Security audit tool for OpenClaw deployments"
-authors = [{name = "PolicyGate"}]
+readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["pyyaml"]
+license = {text = "Apache-2.0"}
+authors = [{ name = "PolicyGate" }]
+
+dependencies = [
+    "pyyaml>=6.0"
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Security",
+]
+
+[project.urls]
+Homepage = "https://github.com/policygate/clawshield"
+Source = "https://github.com/policygate/clawshield"
+Issues = "https://github.com/policygate/clawshield/issues"
 
 [project.scripts]
 clawshield = "clawshield.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["clawshield*"]
+exclude = ["planning*", "tests*"]
