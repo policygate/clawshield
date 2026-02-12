@@ -3,6 +3,7 @@ ClawShield
 [![PyPI version](https://img.shields.io/pypi/v/clawshield.svg)](https://pypi.org/project/clawshield/)
 [![Python versions](https://img.shields.io/pypi/pyversions/clawshield.svg)](https://pypi.org/project/clawshield/)
 [![CI](https://github.com/policygate/clawshield/actions/workflows/ci.yml/badge.svg)](https://github.com/policygate/clawshield/actions)
+[![PyPI downloads](https://img.shields.io/pypi/dm/clawshield)](https://pypi.org/project/clawshield/)
 
 ClawShield is a security audit tool for OpenClaw deployments.
 
@@ -90,20 +91,31 @@ Exit Codes
 Code	Meaning
 0	No findings at or above threshold
 1	Findings at or above threshold
-JSON Output Contract (v0.1)
+Example JSON Output
+
+```json
 {
   "meta": {
     "schema_version": "0.1",
-    "policy_path": "...",
-    "warnings": []
+    "tool_version": "0.3.0",
+    "policy_path": "clawshield/policies/vps_public.yaml"
   },
   "facts": [
-    {"key": "...", "value": "...", "source": "..."}
+    {
+      "key": "network.bind_address",
+      "value": "0.0.0.0",
+      "source": "openclaw_config:openclaw.yaml"
+    },
+    {
+      "key": "runtime.auth_enabled",
+      "value": false,
+      "source": "openclaw_config:openclaw.yaml"
+    }
   ],
   "findings": [
     {
       "rule_id": "NET-001",
-      "title": "...",
+      "title": "Public bind address with authentication disabled",
       "severity": "critical",
       "confidence": "high",
       "evidence": [],
@@ -112,9 +124,9 @@ JSON Output Contract (v0.1)
     }
   ]
 }
+```
 
-
-The JSON schema is versioned and locked via golden tests to prevent drift.
+All JSON output is deterministic and schema-versioned. The schema is locked via golden tests to prevent drift.
 
 Architecture
 
