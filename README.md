@@ -1,97 +1,98 @@
-ClawShield
+# ClawShield
 
 [![PyPI version](https://img.shields.io/pypi/v/clawshield.svg)](https://pypi.org/project/clawshield/)
 [![Python versions](https://img.shields.io/pypi/pyversions/clawshield.svg)](https://pypi.org/project/clawshield/)
 [![CI](https://github.com/policygate/clawshield/actions/workflows/ci.yml/badge.svg)](https://github.com/policygate/clawshield/actions)
 [![PyPI downloads](https://img.shields.io/pypi/dm/clawshield)](https://pypi.org/project/clawshield/)
 
-ClawShield is a security audit tool for OpenClaw deployments.
+ClawShield detects high-risk misconfigurations in OpenClaw agents before they become exposed attack surfaces.
 
-It performs static security analysis of OpenClaw configurations and host posture to detect common high-risk misconfigurations.
+It is the first release under the PolicyGate umbrella — a runtime policy enforcement framework for AI agents.
 
-ClawShield is the first module released under the PolicyGate umbrella — a runtime policy enforcement framework for AI agents.
+## Why This Exists
 
-What ClawShield Checks
-Network Exposure
+AI agents are often deployed:
 
-Public bind address (0.0.0.0, ::)
+- Publicly bound to `0.0.0.0`
+- With authentication disabled
+- Inside privileged or root containers
+- With API keys sitting in `.env` files
+- Without file permission hardening
 
-Authentication disabled while publicly exposed
+These are not theoretical risks — they are common misconfigurations.
 
-Container Posture
+ClawShield surfaces them deterministically and exits non-zero in CI when thresholds are exceeded.
 
-Containers running as root
+## What ClawShield Checks
 
-Containers running in privileged mode
+### Network Exposure
 
-Secrets Handling
+- Public bind address (`0.0.0.0`, `::`)
+- Authentication disabled while publicly exposed
 
-API keys present in .env files
+### Container Posture
 
-API key references inside config files
+- Containers running as root
+- Containers running in privileged mode
 
-File Permissions
+### Secrets Handling
 
-World-writable config files
+- API keys present in `.env` files
+- API key references inside config files
 
-World-readable or world-writable .env files
+### File Permissions
 
-What ClawShield Does NOT Check
+- World-writable config files
+- World-readable or world-writable `.env` files
 
-Runtime exploitability
+## What ClawShield Does NOT Check
 
-Kernel vulnerabilities
-
-Docker daemon hardening
-
-Firewall configuration
-
-Intrusion detection
-
-Secrets entropy analysis
-
-Cloud IAM posture
+- Runtime exploitability
+- Kernel vulnerabilities
+- Docker daemon hardening
+- Firewall configuration
+- Intrusion detection
+- Secrets entropy analysis
+- Cloud IAM posture
 
 ClawShield is a static audit tool, not a runtime protection system.
 
-Installation (Development)
+## Quick Start (Users)
 
-Clone the repository:
-
-git clone https://github.com/policygate/clawshield.git
-cd clawshield
-
-
-Install locally:
-
-pip install -e .
-
-Usage
+```bash
+pip install clawshield
+```
 
 Run audit:
 
-python -m clawshield path/to/openclaw.yaml
-
+```bash
+clawshield path/to/openclaw.yaml
+```
 
 JSON mode:
 
-python -m clawshield --json path/to/openclaw.yaml
+```bash
+clawshield --json path/to/openclaw.yaml
+```
 
+Fail CI on severity threshold:
 
-Control exit threshold:
-
-python -m clawshield --fail-on high path/to/openclaw.yaml
-
+```bash
+clawshield --fail-on high path/to/openclaw.yaml
+```
 
 Severity ranking:
 
-low < medium < high < critical
+`low` < `medium` < `high` < `critical`
 
-Exit Codes
-Code	Meaning
-0	No findings at or above threshold
-1	Findings at or above threshold
-Example JSON Output
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | No findings at or above threshold |
+| 1 | Findings at or above threshold |
+
+## Example JSON Output
 
 ```json
 {
@@ -126,42 +127,39 @@ Example JSON Output
 }
 ```
 
-All JSON output is deterministic and schema-versioned. The schema is locked via golden tests to prevent drift.
+JSON output is deterministic and schema-versioned.
+Golden tests lock the schema to prevent drift.
 
-Architecture
+## Architecture
 
 ClawShield consists of:
 
-Scanners → Collect facts from runtime and configuration
-
-Policy Engine → Evaluates YAML rules against collected facts
-
-Structured Output → Designed for automation and CI pipelines
+- **Scanners** — Collect facts from runtime and configuration
+- **Policy Engine** — Evaluates YAML rules against collected facts
+- **Structured Output** — Designed for automation and CI pipelines
 
 Scanners are modular and isolated from the engine core.
 
-Roadmap
+## Roadmap
 
-Continuous monitoring mode
+- Continuous monitoring mode
+- Additional runtime adapters
+- Expanded Docker hardening checks
+- Policy bundles
+- Advanced secrets detection
+- Signed policy packs
 
-CI integration
-
-Agent-agnostic security profile
-
-Advanced secrets detection
-
-Automated remediation plans
-
-Status
+## Status
 
 Early release. Actively evolving.
 
 Feedback and contributions welcome.
 
-License
+## License
 
 Apache 2.0
 
-Security Disclaimer
+## Security Disclaimer
 
-ClawShield surfaces rule-based misconfigurations according to the active policy set. It does not guarantee system security.
+ClawShield surfaces rule-based misconfigurations according to the active policy set.
+It does not guarantee system security.
