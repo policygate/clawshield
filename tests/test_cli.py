@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+from clawshield import __version__
 from clawshield.__main__ import main
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -93,7 +94,7 @@ def test_golden_json_net001_only(capsys):
 
     # meta
     assert output["meta"]["schema_version"] == "0.1"
-    assert output["meta"]["tool_version"] == "0.3.0"
+    assert output["meta"]["tool_version"] == __version__
     assert "vps_public.yaml" in output["meta"]["policy_path"]
     assert isinstance(output["meta"].get("warnings"), list)
 
@@ -138,7 +139,7 @@ def test_golden_json_both_rules(capsys):
 
     # meta: no warnings when Docker is available
     assert "warnings" not in output["meta"]
-    assert output["meta"]["tool_version"] == "0.3.0"
+    assert output["meta"]["tool_version"] == __version__
 
     # facts: 2 config + 3 secrets + 3 file permissions + 2 Docker
     assert len(output["facts"]) == 10
@@ -169,7 +170,7 @@ def test_golden_json_clean(capsys):
     output = json.loads(capsys.readouterr().out)
 
     assert output["meta"]["schema_version"] == "0.1"
-    assert output["meta"]["tool_version"] == "0.3.0"
+    assert output["meta"]["tool_version"] == __version__
     assert "vps_public.yaml" in output["meta"]["policy_path"]
     assert len(output["findings"]) == 0
     assert len(output["facts"]) == 8  # 2 config + 3 secrets + 3 file permissions
@@ -184,7 +185,7 @@ def test_golden_json_empty_config(capsys, tmp_path):
     output = json.loads(capsys.readouterr().out)
 
     assert output["meta"]["schema_version"] == "0.1"
-    assert output["meta"]["tool_version"] == "0.3.0"
+    assert output["meta"]["tool_version"] == __version__
     assert "policy_path" in output["meta"]
     assert output["findings"] == []
     # Secrets + file permissions scanners produce facts even for empty config
