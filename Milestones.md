@@ -1,5 +1,64 @@
 # ClawShield — Milestones
 
+## v0.3.0 Release & PolicyGate Launch (2026-02-11)
+
+### PyPI Publication
+
+- Fixed `v0.3.0` git tag — was pointing to `55f3c09` (`version = "0.1.0"`), retagged to `c21e7a0` (`version = "0.3.0"`)
+- Force-updated tag on GitHub remote
+- Built sdist + wheel via `python -m build`
+- `twine check` passed for both distributions
+- **Published to PyPI**: `pip install clawshield` now installs v0.3.0
+- Verified public install in isolated venv: installs from PyPI, CLI entrypoint works, dependencies resolve, no local path leakage
+
+### README Overhaul
+
+- Added badges: PyPI version, Python versions, CI status, PyPI downloads
+- Replaced placeholder JSON schema with concrete example output (NET-001 finding)
+- Full rewrite: added "Why This Exists" motivation section, proper Markdown formatting (`#` headers, code fences, pipe tables, bullet lists), updated roadmap
+- Old README preserved locally as `README.old.md`
+
+### PolicyGate Landing Page
+
+- Created `policygate/policygate.github.io` repo on GitHub
+- Built static HTML/CSS landing page (dark theme, responsive, no dependencies)
+- **9 sections**: nav bar, hero, problem statement, PolicyGate overview, ClawShield product card, how-it-works pipeline, roadmap, waitlist (Formspree), footer
+- `CNAME` configured for `policygate.dev`
+- Deployed to GitHub Pages
+
+### Formspree & DNS Configuration
+
+- Created Formspree account and connected waitlist form (endpoint `xbdaoobj`)
+- Configured DNS at Namecheap: 4 A records → GitHub Pages IPs, CNAME `www` → `policygate.github.io`
+- GitHub Pages DNS check successful for `policygate.dev`
+- Removed stale Namecheap parking records (URL Redirect, duplicate CNAME) that were blocking SSL provisioning
+- **Pending**: Enforce HTTPS checkbox — waiting for GitHub to provision Let's Encrypt certificate
+
+### OpenClaw Installation (2026-02-15)
+
+- Installed OpenClaw v2026.2.14 on WSL2 (Ubuntu 24.04)
+- Upgraded Node.js from v20 to v22.22.0 (OpenClaw requirement)
+- Manual onboard with secure defaults:
+  - Gateway: `ws://127.0.0.1:18789` (loopback, token auth)
+  - Model provider: Anthropic API key (Claude Opus 4.6)
+  - Tailscale: off
+  - Channels: none configured (not needed for dev)
+  - Sandbox: not configured (default = off — future ClawShield rule candidate)
+- Gateway running as systemd user service with lingering enabled
+- Config file at `~/.openclaw/openclaw.json` — this is ClawShield's primary scan target
+- OpenClaw's built-in `security audit` reports 0 critical, 2 warn, 1 info on default config
+- **Key observation**: No `sandbox`, `dmPolicy`, or `tools` policy configured — all relying on defaults. These are the gaps ClawShield should detect.
+
+### Next Steps
+
+- **HTTPS**: Wait for GitHub to provision SSL certificate for `policygate.dev`, then enable Enforce HTTPS
+- **License deprecation**: Update `pyproject.toml` license format from `{text = "Apache-2.0"}` to `"Apache-2.0"` (setuptools deprecation warning, deadline Feb 2027)
+- **ClawShield roadmap** (informed by OpenClaw security docs):
+  - New rules: DM policy open, sandbox disabled, weak auth token, browser in sandbox, redaction disabled, group policy open
+  - Expand config scanner to read `openclaw.json` natively (beyond `bind_address` and `auth.enabled`)
+  - Align with and eventually supersede `openclaw security audit` coverage
+  - Test ClawShield against live OpenClaw instance by deliberately misconfiguring gateway
+
 ## v0.3.0 (2026-02-09)
 
 ### Planning Phase
