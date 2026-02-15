@@ -46,6 +46,11 @@ def main() -> int:
         return 1
 
     # Load policy
+    if not policy_path.exists():
+        print(f"error: policy file not found: {policy_path}", file=sys.stderr)
+        if not args.policy:
+            print("  This may indicate a broken installation. Try: pip install --force-reinstall clawshield", file=sys.stderr)
+        return 1
     try:
         engine = PolicyEngine(policy_path)
     except PolicyLoadError as e:

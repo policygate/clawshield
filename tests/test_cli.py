@@ -216,3 +216,19 @@ def test_doc001_title_indicates_host_scope(capsys):
     doc001 = [f for f in output["findings"] if f["rule_id"] == "DOC-001"]
     assert len(doc001) == 1
     assert "Host has" in doc001[0]["title"]
+
+
+# --- Packaging self-check ---
+
+def test_bundled_policy_exists():
+    """The default policy YAML must be present in the installed package."""
+    policy = Path(__file__).resolve().parent.parent / "clawshield" / "policies" / "vps_public.yaml"
+    assert policy.is_file(), f"bundled policy missing: {policy}"
+
+
+def test_missing_policy_exits_with_message(capsys):
+    """A missing policy file should produce a clear error, not a traceback."""
+    code = _run_main("--policy", "/nonexistent/policy.yaml", str(FIXTURES / "openclaw_safe.yaml"))
+    assert code == 1
+    stderr = capsys.readouterr().err
+    assert "policy file not found" in stderr
