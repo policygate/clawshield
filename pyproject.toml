@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clawshield"
-version = "0.3.1"
+version = "0.3.2"
 description = "Security audit tool for OpenClaw deployments"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,3 +35,6 @@ clawshield = "clawshield.__main__:main"
 [tool.setuptools.packages.find]
 include = ["clawshield*"]
 exclude = ["planning*", "tests*"]
+
+[tool.setuptools.package-data]
+clawshield = ["policies/*.yaml"]
