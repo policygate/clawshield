@@ -1,0 +1,11 @@
+{
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token",
+      "token": "49eef3f74ad0da2eb5c4c79591564c6058243ddc313e1045"
+    }
+  }
+}

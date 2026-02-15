@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 _SEARCH_PATHS = [
+    Path.home() / ".openclaw" / "openclaw.json",
     Path("/etc/openclaw/config.yaml"),
     Path.home() / ".openclaw" / "config.yaml",
     Path("openclaw.yaml"),
