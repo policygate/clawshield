@@ -16,6 +16,21 @@ _LOOPBACK_BIND_MODES = {"loopback", "localhost", "127.0.0.1", "::1"}
 # Auth modes that count as "auth enabled"
 _AUTH_ENABLED_MODES = {"token", "password", "trusted-proxy"}
 
+# Tool profiles that include shell/exec capabilities
+_SHELL_PROFILES = {"full", "coding"}
+
+# Tools considered "shell-like" for deny-list checking
+_SHELL_TOOLS = {"exec", "bash", "process", "group:runtime"}
+
+# Minimum token length (chars) considered acceptable
+_MIN_TOKEN_LENGTH = 32
+
+# Common placeholder tokens that should always be flagged
+_WEAK_TOKEN_PATTERNS = {
+    "changeme", "default", "password", "secret", "token", "admin",
+    "1234", "test", "example", "placeholder", "replace_me", "fixme",
+}
+
 
 class OpenClawConfigScanner:
     """Reads an OpenClaw config file and extracts security-relevant facts."""
@@ -78,6 +93,7 @@ def _is_json_format(path: Path, config: dict) -> bool:
 def _extract_json_facts(config: dict, source: str) -> list[Fact]:
     """Extract facts from OpenClaw's native JSON config (openclaw.json)."""
     facts: list[Fact] = []
+    defaulted = f"{source} (defaulted)"
 
     # gateway.bind → network.bind_address
     bind = _deep_get(config, "gateway.bind")
@@ -88,22 +104,68 @@ def _extract_json_facts(config: dict, source: str) -> list[Fact]:
             source=source,
         ))
 
-    # gateway.auth.mode → runtime.auth_enabled
+    # gateway.auth.mode → runtime.auth_enabled + runtime.auth_mode
     auth_mode = _deep_get(config, "gateway.auth.mode")
     if auth_mode is not None:
-        facts.append(Fact(
-            key="runtime.auth_enabled",
-            value=auth_mode in _AUTH_ENABLED_MODES,
-            source=source,
-        ))
+        mode_str = str(auth_mode).strip().lower()
+        facts.append(Fact(key="runtime.auth_enabled", value=mode_str in _AUTH_ENABLED_MODES, source=source))
+        facts.append(Fact(key="runtime.auth_mode", value=mode_str, source=source))
     else:
-        # No auth configured at all — treat as disabled
         if "gateway" in config:
-            facts.append(Fact(
-                key="runtime.auth_enabled",
-                value=False,
-                source=source,
-            ))
+            facts.append(Fact(key="runtime.auth_enabled", value=False, source=source))
+            facts.append(Fact(key="runtime.auth_mode", value="none", source=defaulted))
+
+    # gateway.auth.token → runtime.auth_token_length + runtime.auth_token_weak
+    token = _deep_get(config, "gateway.auth.token")
+    if token is not None:
+        token_str = str(token)
+        facts.append(Fact(key="runtime.auth_token_length", value=len(token_str), source=source))
+        is_weak = len(token_str) < _MIN_TOKEN_LENGTH or token_str.strip().lower() in _WEAK_TOKEN_PATTERNS
+        facts.append(Fact(key="runtime.auth_token_weak", value=is_weak, source=source))
+
+    # agents.defaults.sandbox.mode → sandbox.enabled (default: "off")
+    sandbox_mode = _deep_get(config, "agents.defaults.sandbox.mode")
+    if sandbox_mode is not None:
+        facts.append(Fact(key="sandbox.enabled", value=str(sandbox_mode).strip().lower() != "off", source=source))
+    else:
+        facts.append(Fact(key="sandbox.enabled", value=False, source=defaulted))
+
+    # tools.profile + tools.deny → tools.shell_enabled (default profile: "full")
+    tools_profile = _deep_get(config, "tools.profile")
+    tools_deny = _deep_get(config, "tools.deny") or []
+    deny_set = {str(d).strip().lower() for d in tools_deny}
+    shell_denied = bool(_SHELL_TOOLS & deny_set)
+
+    if tools_profile is not None:
+        profile = str(tools_profile).strip().lower()
+        shell_src = source
+    else:
+        profile = "full"
+        shell_src = defaulted
+
+    facts.append(Fact(
+        key="tools.shell_enabled",
+        value=profile in _SHELL_PROFILES and not shell_denied,
+        source=shell_src,
+    ))
+
+    # browser.enabled (default: true) + tools.deny check
+    browser_val = _deep_get(config, "browser.enabled")
+    browser_denied = bool({"browser", "group:ui"} & deny_set)
+    if browser_val is not None:
+        facts.append(Fact(key="browser.enabled", value=bool(browser_val) and not browser_denied, source=source))
+    else:
+        facts.append(Fact(key="browser.enabled", value=not browser_denied, source=defaulted))
+
+    # logging.redactSensitive → logging.redaction_enabled (default: "tools")
+    redact = _deep_get(config, "logging.redactSensitive")
+    if redact is not None:
+        facts.append(Fact(key="logging.redaction_enabled", value=str(redact).strip().lower() != "off", source=source))
+    else:
+        facts.append(Fact(key="logging.redaction_enabled", value=True, source=defaulted))
+
+    # File logs are never redacted per OpenClaw docs
+    facts.append(Fact(key="logging.file_logs_redacted", value=False, source=f"{source} (documented behavior)"))
 
     return facts
 

@@ -145,6 +145,241 @@ def test_no_file001_on_safe_permissions():
     assert len(file_findings) == 0
 
 
+# --- NET-002 ---
+
+def test_net002_fires_on_public_bind_with_password_auth():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="0.0.0.0", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="runtime.auth_mode", value="password", source="test"),
+    ]
+    result = engine.evaluate(facts)
+    net002 = [f for f in result.findings if f.rule_id == "NET-002"]
+    assert len(net002) == 1
+    assert net002[0].severity == "high"
+
+
+def test_net002_does_not_fire_with_token_auth():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="0.0.0.0", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="runtime.auth_mode", value="token", source="test"),
+    ]
+    result = engine.evaluate(facts)
+    net002 = [f for f in result.findings if f.rule_id == "NET-002"]
+    assert len(net002) == 0
+
+
+def test_net002_does_not_fire_on_localhost():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_mode", value="password", source="test"),
+    ]
+    result = engine.evaluate(facts)
+    net002 = [f for f in result.findings if f.rule_id == "NET-002"]
+    assert len(net002) == 0
+
+
+# --- AUTH-001 ---
+
+def test_auth001_fires_on_weak_token():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="runtime.auth_token_weak", value=True, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    auth001 = [f for f in result.findings if f.rule_id == "AUTH-001"]
+    assert len(auth001) == 1
+    assert auth001[0].severity == "medium"
+
+
+def test_auth001_does_not_fire_on_strong_token():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="runtime.auth_token_weak", value=False, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    auth001 = [f for f in result.findings if f.rule_id == "AUTH-001"]
+    assert len(auth001) == 0
+
+
+# --- SANDBOX-001 ---
+
+def test_sandbox001_fires_when_disabled_with_shell():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="sandbox.enabled", value=False, source="test"),
+        Fact(key="tools.shell_enabled", value=True, source="test"),
+        Fact(key="browser.enabled", value=False, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    sandbox = [f for f in result.findings if f.rule_id == "SANDBOX-001"]
+    assert len(sandbox) == 1
+    assert sandbox[0].severity == "high"
+
+
+def test_sandbox001_fires_when_disabled_with_browser():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="sandbox.enabled", value=False, source="test"),
+        Fact(key="tools.shell_enabled", value=False, source="test"),
+        Fact(key="browser.enabled", value=True, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    sandbox = [f for f in result.findings if f.rule_id == "SANDBOX-001"]
+    assert len(sandbox) == 1
+
+
+def test_sandbox001_does_not_fire_when_sandbox_enabled():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="sandbox.enabled", value=True, source="test"),
+        Fact(key="tools.shell_enabled", value=True, source="test"),
+        Fact(key="browser.enabled", value=True, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    sandbox = [f for f in result.findings if f.rule_id == "SANDBOX-001"]
+    assert len(sandbox) == 0
+
+
+def test_sandbox001_does_not_fire_when_no_risky_tools():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="sandbox.enabled", value=False, source="test"),
+        Fact(key="tools.shell_enabled", value=False, source="test"),
+        Fact(key="browser.enabled", value=False, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    sandbox = [f for f in result.findings if f.rule_id == "SANDBOX-001"]
+    assert len(sandbox) == 0
+
+
+# --- TOOL-001 ---
+
+def test_tool001_fires_when_shell_enabled():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="tools.shell_enabled", value=True, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    tool001 = [f for f in result.findings if f.rule_id == "TOOL-001"]
+    assert len(tool001) == 1
+    assert tool001[0].severity == "medium"
+
+
+def test_tool001_does_not_fire_when_shell_disabled():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="tools.shell_enabled", value=False, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    tool001 = [f for f in result.findings if f.rule_id == "TOOL-001"]
+    assert len(tool001) == 0
+
+
+# --- TOOL-002 ---
+
+def test_tool002_fires_when_browser_enabled():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="browser.enabled", value=True, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    tool002 = [f for f in result.findings if f.rule_id == "TOOL-002"]
+    assert len(tool002) == 1
+    assert tool002[0].severity == "medium"
+
+
+def test_tool002_does_not_fire_when_browser_disabled():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="browser.enabled", value=False, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    tool002 = [f for f in result.findings if f.rule_id == "TOOL-002"]
+    assert len(tool002) == 0
+
+
+# --- LOG-001 ---
+
+def test_log001_fires_when_redaction_disabled():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="logging.redaction_enabled", value=False, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    log001 = [f for f in result.findings if f.rule_id == "LOG-001"]
+    assert len(log001) == 1
+    assert log001[0].severity == "medium"
+
+
+def test_log001_does_not_fire_when_redaction_enabled():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="logging.redaction_enabled", value=True, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    log001 = [f for f in result.findings if f.rule_id == "LOG-001"]
+    assert len(log001) == 0
+
+
+# --- LOG-002 ---
+
+def test_log002_fires_when_console_redacted_but_files_not():
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="logging.redaction_enabled", value=True, source="test"),
+        Fact(key="logging.file_logs_redacted", value=False, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    log002 = [f for f in result.findings if f.rule_id == "LOG-002"]
+    assert len(log002) == 1
+    assert log002[0].severity == "low"
+
+
+def test_log002_does_not_fire_when_redaction_fully_off():
+    """LOG-002 only fires when console redaction is on but file logs aren't."""
+    engine = PolicyEngine(POLICY_PATH)
+    facts = [
+        Fact(key="network.bind_address", value="127.0.0.1", source="test"),
+        Fact(key="runtime.auth_enabled", value=True, source="test"),
+        Fact(key="logging.redaction_enabled", value=False, source="test"),
+        Fact(key="logging.file_logs_redacted", value=False, source="test"),
+    ]
+    result = engine.evaluate(facts)
+    log002 = [f for f in result.findings if f.rule_id == "LOG-002"]
+    assert len(log002) == 0
+
+
 def test_duplicate_fact_warns_with_sources():
     engine = PolicyEngine(POLICY_PATH)
     facts = [

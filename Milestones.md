@@ -49,15 +49,41 @@
 - OpenClaw's built-in `security audit` reports 0 critical, 2 warn, 1 info on default config
 - **Key observation**: No `sandbox`, `dmPolicy`, or `tools` policy configured — all relying on defaults. These are the gaps ClawShield should detect.
 
+### v0.3.1 Patch Release (2026-02-15)
+
+- **Critical bug fix**: Config scanner could not parse OpenClaw's native JSON format (`openclaw.json`)
+  - Scanner only understood YAML paths (`server.bind_address`, `auth.enabled`)
+  - OpenClaw uses JSON with different paths (`gateway.bind`, `gateway.auth.mode`) and semantic values (`"loopback"`, `"lan"`, `"token"`, `"none"`)
+  - Result: ClawShield silently returned zero findings on a real OpenClaw install — a false negative on the primary scan target
+- **Config scanner rewrite** (`clawshield/scanners/openclaw/config.py`):
+  - Added JSON loading with format auto-detection (JSON tried first for `.json` files, then YAML fallback)
+  - OpenClaw bind mode mapping: `loopback` → `127.0.0.1`, `lan`/`public` → `0.0.0.0`
+  - OpenClaw auth mode mapping: `token`/`password` → enabled, `none`/missing → disabled
+  - Separated into `_extract_json_facts()` and `_extract_yaml_facts()`
+  - Added `~/.openclaw/openclaw.json` as first search path in adapter
+- **Validated against live OpenClaw**:
+  - Secure config (loopback + token auth): clean scan, no findings
+  - Auth set to `"none"`: `runtime.auth_enabled=false` detected correctly
+  - Bind set to `"lan"` + auth `"none"`: NET-001 fires at CRITICAL with both evidence facts
+- **Golden tests use dynamic version**: Replaced 4 hardcoded `"0.3.0"` assertions with `__version__` import
+- **Added `test_version.py`**: Ensures `__init__.py` and `pyproject.toml` versions stay in sync
+- **Published to PyPI**: `pip install clawshield` now installs v0.3.1
+- Tests: 85 → 94
+
+### PolicyGate Website Live
+
+- HTTPS certificate provisioned by GitHub/Let's Encrypt
+- Enforce HTTPS enabled — `policygate.dev` fully operational
+- Waitlist form confirmed working (Formspree dashboard shows submissions)
+
 ### Next Steps
 
-- **HTTPS**: Wait for GitHub to provision SSL certificate for `policygate.dev`, then enable Enforce HTTPS
 - **License deprecation**: Update `pyproject.toml` license format from `{text = "Apache-2.0"}` to `"Apache-2.0"` (setuptools deprecation warning, deadline Feb 2027)
 - **ClawShield roadmap** (informed by OpenClaw security docs):
   - New rules: DM policy open, sandbox disabled, weak auth token, browser in sandbox, redaction disabled, group policy open
-  - Expand config scanner to read `openclaw.json` natively (beyond `bind_address` and `auth.enabled`)
+  - Expand config scanner to extract more facts from `openclaw.json` (sandbox, DM policy, redaction, tools policy)
   - Align with and eventually supersede `openclaw security audit` coverage
-  - Test ClawShield against live OpenClaw instance by deliberately misconfiguring gateway
+- **VPS deployment**: Deploy OpenClaw on a real VPS for public-facing ClawShield testing
 
 ## v0.3.0 (2026-02-09)
 

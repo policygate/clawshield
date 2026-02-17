@@ -20,6 +20,23 @@ rules:
       autofix:
         - id: "ACT-BIND-LOCALHOST"
 
+  - id: "NET-002"
+    title: "Public interface with password-based authentication"
+    severity: "high"
+    confidence: "high"
+    condition:
+      all:
+        - fact: "network.bind_address"
+          op: "in"
+          value: ["0.0.0.0", "::"]
+        - fact: "runtime.auth_mode"
+          op: "eq"
+          value: "password"
+    actions:
+      recommended:
+        - id: "ACT-SWITCH-TO-TOKEN-AUTH"
+        - id: "ACT-ADD-REVERSE-PROXY"
+
   - id: "DOC-001"
     title: "Host has containers running as root or with elevated privileges"
     severity: "high"
@@ -37,6 +54,65 @@ rules:
         - id: "ACT-DOCKER-DROP-CAPS"
       autofix:
         - id: "ACT-PATCH-COMPOSE-HARDEN"
+
+  - id: "AUTH-001"
+    title: "Weak or placeholder authentication token"
+    severity: "medium"
+    confidence: "high"
+    condition:
+      fact: "runtime.auth_token_weak"
+      op: "eq"
+      value: true
+    actions:
+      recommended:
+        - id: "ACT-GENERATE-STRONG-TOKEN"
+
+  - id: "SANDBOX-001"
+    title: "No sandbox isolation for shell or browser tools (elevated blast radius)"
+    severity: "high"
+    confidence: "high"
+    condition:
+      all:
+        - fact: "sandbox.enabled"
+          op: "eq"
+          value: false
+        - any:
+            - fact: "tools.shell_enabled"
+              op: "eq"
+              value: true
+            - fact: "browser.enabled"
+              op: "eq"
+              value: true
+    actions:
+      recommended:
+        - id: "ACT-ENABLE-SANDBOX"
+        - id: "ACT-DISABLE-RISKY-TOOLS"
+
+  - id: "TOOL-001"
+    title: "Shell execution is enabled"
+    severity: "medium"
+    confidence: "high"
+    condition:
+      fact: "tools.shell_enabled"
+      op: "eq"
+      value: true
+    actions:
+      recommended:
+        - id: "ACT-DISABLE-SHELL"
+        - id: "ACT-USE-COMMAND-ALLOWLIST"
+
+  - id: "TOOL-002"
+    title: "Browser automation is enabled"
+    severity: "medium"
+    confidence: "high"
+    condition:
+      fact: "browser.enabled"
+      op: "eq"
+      value: true
+    actions:
+      recommended:
+        - id: "ACT-DISABLE-BROWSER"
+        - id: "ACT-ISOLATE-BROWSER-PROFILE"
 
   - id: "SEC-001"
     title: "Potential API keys stored in plaintext in OpenClaw config directory"
@@ -73,3 +149,32 @@ rules:
     actions:
       recommended:
         - id: "ACT-RESTRICT-FILE-PERMISSIONS"
+
+  - id: "LOG-001"
+    title: "Sensitive data redaction is disabled"
+    severity: "medium"
+    confidence: "high"
+    condition:
+      fact: "logging.redaction_enabled"
+      op: "eq"
+      value: false
+    actions:
+      recommended:
+        - id: "ACT-ENABLE-REDACTION"
+
+  - id: "LOG-002"
+    title: "File logs contain unredacted sensitive data"
+    severity: "low"
+    confidence: "high"
+    condition:
+      all:
+        - fact: "logging.redaction_enabled"
+          op: "eq"
+          value: true
+        - fact: "logging.file_logs_redacted"
+          op: "eq"
+          value: false
+    actions:
+      recommended:
+        - id: "ACT-SECURE-LOG-FILES"
+        - id: "ACT-RESTRICT-LOG-PERMISSIONS"
