@@ -76,14 +76,190 @@
 - Enforce HTTPS enabled — `policygate.dev` fully operational
 - Waitlist form confirmed working (Formspree dashboard shows submissions)
 
-### Next Steps
+### v0.3.2 Packaging Fix (2026-02-15)
+
+- **Bug**: `pip install clawshield` on WSL2 hit `FileNotFoundError` for `vps_public.yaml` — policy YAML files were not included in the wheel
+- **Fix**: Added `[tool.setuptools.package-data]` section to `pyproject.toml`: `clawshield = ["policies/*.yaml"]`
+- **Runtime self-check**: Added missing-policy detection in `__main__.py` — prints helpful reinstall suggestion if policy file not found
+- **`.gitattributes`**: Added to force LF line endings (`* text=auto eol=lf`)
+- **Published to PyPI**: v0.3.2 verified working on WSL2 with live OpenClaw
+
+### v0.4.0 — Expanded Detection Rules (2026-02-16)
+
+- **7 new detection rules** in `vps_public.yaml` (total now 11):
+  - NET-002: Public interface with password-based auth (high)
+  - AUTH-001: Weak or placeholder authentication token (medium)
+  - SANDBOX-001: No sandbox isolation for shell/browser tools — elevated blast radius (high)
+  - TOOL-001: Shell execution enabled (medium)
+  - TOOL-002: Browser automation enabled (medium)
+  - SEC-001: API keys in plaintext (high) — already existed
+  - FILE-001: File permissions (high) — already existed
+  - LOG-001: Sensitive data redaction disabled (medium)
+  - LOG-002: File logs contain unredacted sensitive data (low)
+- **Expanded fact extraction** in `_extract_json_facts()`:
+  - `runtime.auth_mode`, `runtime.auth_token_length`, `runtime.auth_token_weak`
+  - `sandbox.enabled`, `tools.shell_enabled`, `browser.enabled`
+  - `logging.redaction_enabled`, `logging.file_logs_redacted`
+  - All defaulted values tagged with `(defaulted)` in source string
+- **Token weakness detection**: Length < 32 chars OR matches placeholder patterns (`changeme`, `default`, `password`, etc.)
+- **Shell enabled logic**: Derived from `tools.profile` + `tools.deny` list; shell profiles = `full`, `coding`
+- **Browser enabled logic**: Checks `browser.enabled` key and `tools.deny` list
+- **Documented defaults applied**: sandbox=off, shell=enabled (full profile), browser=enabled, redaction=tools (console only)
+- **20 new engine tests** for all 7 new rules
+- **12 new scanner tests** for defaults tagging, explicit overrides, token weakness, redaction
+- **Published to PyPI**: v0.4.0 verified working on WSL2 against live OpenClaw
+- **Secure PyPI workflow**: Set up `.pypirc` for credential storage (no more pasting tokens in chat)
+- Tests: 94 → 126+
+
+### VPS Hardening — In Progress (2026-02-17)
+
+#### Setup
+- Provisioned Hostinger VPS with OpenClaw pre-installed template
+- **OS**: Ubuntu with Docker
+- **OpenClaw**: Runs inside Docker container `openclaw-lbub-openclaw-1` (image `ghcr.io/hostinger/hvps-openclaw:latest`)
+- **Config location**: `/data/.openclaw/openclaw.json` inside the container (NOT at `~/.openclaw/`)
+- SSH access established as root
+
+#### Security Assessment (from reading `openclaw.json`)
+
+**Critical/High issues found:**
+- Port 64120 publicly exposed on `0.0.0.0` via Docker port mapping — anyone on the internet can reach it
+- `allowInsecureAuth: true` — credentials sent in plaintext (no HTTPS enforcement)
+- No sandbox isolation — no sandbox config, defaults to OFF
+- Browser running with `noSandbox: true` — Chrome has no OS-level sandboxing
+- Shell execution enabled (`commands.bash: true`)
+- Nexos API key stored in plaintext in config
+- Same auth token reused across gateway, remote, and hooks (3 places)
+- 6 messaging plugins enabled (WhatsApp, Discord, Telegram, Slack, Nostr, Google Chat) — large attack surface
+
+**Medium issues:**
+- Auth token is exactly 32 characters (borderline minimum)
+- Browser automation enabled in headless mode
+
+**Credentials exposed in chat (MUST ROTATE):**
+- Gateway/remote/hooks auth token
+- Nexos API key
+- Phone number in WhatsApp allowFrom
+
+#### Completed (2026-02-17)
+
+1. **Public exposure eliminated (critical fix)** *(with ChatGPT)*
+   - Edited `/docker/openclaw-lbub/docker-compose.yml`: changed `"${PORT}:${PORT}"` to `"127.0.0.1:${PORT}:${PORT}"`
+   - Restarted container — `docker ps` confirms `127.0.0.1:64120->64120/tcp`
+   - Verified from PowerShell: `TcpTestSucceeded: False` — OpenClaw no longer internet-accessible
+2. **UFW firewall active** — Port 22 allowed, port 64120 denied, firewall persistent
+3. **Token segmentation** — Replaced single reused 32-byte token with three independently generated 64-hex tokens for `gateway.auth`, `gateway.remote`, and `hooks`. Verified via `jq length` checks. Container restarted.
+4. **ClawShield installed on VPS** — venv at `/opt/clawshield-venv`, scan validated against real deployment
+5. **SSH hardening complete** *(with ChatGPT)*
+   - Created non-root user `jon` with sudo access
+   - Generated ED25519 SSH key, installed public key
+   - Disabled root login, password auth, keyboard-interactive auth
+   - Durable override at `/etc/ssh/sshd_config.d/99-hardening.conf` (survives cloud-init)
+   - Verified: `ssh jon@IP` works (key only), password auth rejected, root login rejected
+6. **Post-hardening ClawShield scan results:**
+   - `[HIGH] DOC-001` — Container running as root
+   - `[HIGH] SANDBOX-001` — No sandbox + shell + browser enabled
+   - `[MEDIUM] TOOL-001` — Shell execution enabled
+   - `[MEDIUM] TOOL-002` — Browser automation enabled
+   - `[LOW] LOG-002` — File logs unredacted
+   - NET-001, NET-002, AUTH-001 did NOT fire — network posture is hardened
+
+**Nexos clarification**: Nexos is the AI gateway/model provider abstraction configured in the Hostinger OpenClaw template (routes to GPT, Claude, Gemini, etc.). Key may be Hostinger-provisioned.
+
+#### Product Insight: ClawShield Detection Gap
+
+**NET-001 would not have fired even BEFORE the Docker bind fix.** The `openclaw.json` has no `gateway.bind` field — only `gateway.mode: "local"`. ClawShield's scanner looks for `gateway.bind` and gets empty string, which doesn't match `["0.0.0.0", "::"]`. The actual public exposure came from Docker's port mapping in `docker-compose.yml`, which ClawShield doesn't inspect. The network hardening was confirmed by `docker ps` and PowerShell, not by ClawShield. This is a real product gap to track — see roadmap below.
+
+#### ~~Phase 1: Capability Reduction~~ — COMPLETE (2026-02-17)
+
+- [x] Disabled browser: added `tools.deny: ["browser"]`
+- [x] Enabled sandbox: set `agents.defaults.sandbox.mode: "container"`
+- [x] Set `allowInsecureAuth: false`
+- [x] Shell already disabled via `commands.bash: false` (done earlier with ChatGPT)
+- [x] Restarted container and re-scanned — SANDBOX-001, TOOL-001, TOOL-002 all resolved
+- **Scanner fix**: `commands.bash` precedence added to fact extraction (was causing false positive TOOL-001)
+  - New precedence: `commands.bash` → `tools.deny` → `tools.profile` → documented default
+  - 5 new tests added, 130 total passing
+  - Jon's user-owned venv at `~/clawshield-venv` on VPS (replaces root-owned `/opt/clawshield-venv`)
+
+**Post-Phase-1 scan results (2 remaining):**
+- `[HIGH] DOC-001` — Container running as root
+- `[LOW] LOG-002` — File logs unredacted
+
+#### Current State (post-Phase 4 — hardening complete)
+
+OpenClaw on VPS is:
+- **Not publicly accessible** (Docker bound to 127.0.0.1, UFW blocking 64120)
+- Docker capabilities minimal (`cap_drop: ALL`, only CHOWN/SETUID/SETGID/DAC_READ_SEARCH)
+- Container starts as root but **app runs as `node` (uid=1000)** via `runuser`
+- Shell disabled, browser disabled, sandbox enabled
+- `allowInsecureAuth: false`
+- Tokens segmented (gateway, remote, hooks each independent 64-hex)
+- Messaging plugins reduced to 2 (Slack + Google Chat)
+- SSH: key-only, root login disabled, non-root user `jon`, fail2ban active
+- Running with Nexos gateway (key rotation pending — contact Hostinger)
+- **Fully hardened baseline**
+
+**Remaining scan results (2, both mitigated):**
+- `[HIGH] DOC-001` — Container configured as root (mitigated: app runs as `node`, caps dropped, scanner gap)
+- `[LOW] LOG-002` — File logs unredacted (accepted risk: no log files exist, scanner hardcodes behavior)
+
+**One pending action:**
+- Contact Hostinger support to rotate Nexos API key (exposed in chat, Hostinger-managed)
+
+#### ~~Phase 2: Container Hardening~~ — COMPLETE (2026-02-18)
+
+- [x] `cap_drop: ALL` — all Linux capabilities dropped
+- [x] `cap_add: [CHOWN, SETUID, SETGID, DAC_READ_SEARCH]` — minimal set for entrypoint
+- [x] Investigated non-root: image uses root→`runuser -u node` pattern (PID 1 root, app runs as `node` uid=1000)
+- [ ] `no-new-privileges` — **NOT compatible** with this image (blocks `runuser` and `chown` on `drwx------` dirs)
+- DOC-001 still fires: container configured as root, but app runs as `node` — **scanner product gap** (checks docker config user, not actual process user)
+- **Product insight**: ClawShield should optionally check running process user via `docker exec ps`, not just `docker inspect` config
+
+#### ~~Phase 3: Log Hygiene~~ — COMPLETE (2026-02-18, accepted risk)
+
+- **LOG-002 accepted risk**: No log sinks configured, no log files exist on disk, OpenClaw is localhost-only behind firewall. Finding is based on documented default behavior (console-only redaction), not actual exposure. Risk is theoretical with zero realized impact.
+- Scanner hardcodes `logging.file_logs_redacted = False` per OpenClaw docs regardless of config — setting `redactSensitive: "all"` would not clear the finding
+- **Product backlog created** (see roadmap):
+  - Scanner should detect absence of log files and suppress/downgrade LOG-002 to info
+  - Scanner should trust `redactSensitive: "all"` when explicitly set instead of hardcoding `False`
+
+#### ~~Phase 4: Secret & Auth Hygiene~~ — COMPLETE (2026-02-18)
+
+- [x] ~~Eliminate token reuse~~ — Done: three independent 64-hex tokens
+- [x] ~~Rotate gateway auth token~~ — Done via token segmentation
+- [x] ~~Set `allowInsecureAuth: false`~~ — Done in Phase 1
+- [x] Messaging plugins reduced from 6 to 2 — disabled WhatsApp, Discord, Telegram, Nostr; kept Slack + Google Chat
+- [x] WhatsApp channel config removed (OpenClaw regenerates `allowFrom` from `.env` on startup — plugin is disabled so non-functional)
+- [ ] **Pending**: Rotate Nexos API key — Hostinger-managed, no self-service rotation in dashboard. Contact Hostinger support to request rotation (key was exposed in Claude chat session)
+
+#### ~~Phase 5: SSH & Host Hardening~~ — COMPLETE
+
+- [x] Created non-root user `jon` with sudo
+- [x] ED25519 key-based SSH auth
+- [x] Disabled password auth and root login
+- [x] Durable config at `/etc/ssh/sshd_config.d/99-hardening.conf`
+
+#### ~~Phase 5b: Defense-in-Depth~~ — COMPLETE (2026-02-18)
+
+- [x] fail2ban installed, enabled, and running
+- [x] SSH jail active (default: bans after 5 failed attempts for 10 minutes)
+- [x] Persistent across reboots (`systemctl enable`)
+
+### Next Steps (after VPS hardening)
 
 - **License deprecation**: Update `pyproject.toml` license format from `{text = "Apache-2.0"}` to `"Apache-2.0"` (setuptools deprecation warning, deadline Feb 2027)
-- **ClawShield roadmap** (informed by OpenClaw security docs):
-  - New rules: DM policy open, sandbox disabled, weak auth token, browser in sandbox, redaction disabled, group policy open
-  - Expand config scanner to extract more facts from `openclaw.json` (sandbox, DM policy, redaction, tools policy)
+- **ClawShield roadmap**:
+  - New rules: DM policy open, group policy open
+  - **Docker-aware scanning**: Detect port exposure from `docker-compose.yml` / Docker port mapping, not just OpenClaw config (gap exposed by VPS hardening)
+  - **Docker process-level user detection**: Check actual running process user via `docker exec ps`, not just `docker inspect` config user (gap exposed by Phase 2 — entrypoint pattern starts root, drops to `node`)
+  - `allowInsecureAuth` detection rule
+  - Token reuse detection (same token in multiple config sections)
+  - ~~`commands.bash` detection~~ — **FIXED in v0.4.0+** (scanner now checks `commands.bash` with proper precedence)
+  - **LOG-002 improvements** (from Phase 3 findings):
+    - Detect absence of log files/sinks → suppress or downgrade LOG-002 to info/not-applicable
+    - Trust explicit `redactSensitive: "all"` config → mark `logging.file_logs_redacted = True` instead of hardcoding `False`
   - Align with and eventually supersede `openclaw security audit` coverage
-- **VPS deployment**: Deploy OpenClaw on a real VPS for public-facing ClawShield testing
 
 ## v0.3.0 (2026-02-09)
 

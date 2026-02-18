@@ -272,6 +272,76 @@ def test_json_redaction_off_detected(tmp_path):
     assert fact_map["logging.redaction_enabled"] is False
 
 
+# --- commands.bash precedence tests ---
+
+def test_commands_bash_false_disables_shell(tmp_path):
+    """commands.bash=false is authoritative — shell disabled regardless of profile."""
+    config = tmp_path / "openclaw.json"
+    config.write_text('{"gateway": {"bind": "loopback"}, "commands": {"bash": false}}')
+
+    scanner = OpenClawConfigScanner()
+    facts = scanner.scan([config])
+
+    fact_map = {f.key: f.value for f in facts}
+    assert fact_map["tools.shell_enabled"] is False
+    shell_fact = [f for f in facts if f.key == "tools.shell_enabled"][0]
+    assert "defaulted" not in shell_fact.source
+
+
+def test_commands_bash_true_enables_shell(tmp_path):
+    """commands.bash=true is authoritative — shell enabled."""
+    config = tmp_path / "openclaw.json"
+    config.write_text('{"gateway": {"bind": "loopback"}, "commands": {"bash": true}}')
+
+    scanner = OpenClawConfigScanner()
+    facts = scanner.scan([config])
+
+    fact_map = {f.key: f.value for f in facts}
+    assert fact_map["tools.shell_enabled"] is True
+    shell_fact = [f for f in facts if f.key == "tools.shell_enabled"][0]
+    assert "defaulted" not in shell_fact.source
+
+
+def test_commands_bash_true_overridden_by_deny(tmp_path):
+    """commands.bash=true but tools.deny includes exec → shell disabled."""
+    config = tmp_path / "openclaw.json"
+    config.write_text('{"gateway": {"bind": "loopback"}, "commands": {"bash": true}, "tools": {"deny": ["exec"]}}')
+
+    scanner = OpenClawConfigScanner()
+    facts = scanner.scan([config])
+
+    fact_map = {f.key: f.value for f in facts}
+    assert fact_map["tools.shell_enabled"] is False
+
+
+def test_no_commands_bash_defaults_to_shell_enabled(tmp_path):
+    """No commands.bash, no tools.profile, no tools.deny → defaulted to enabled."""
+    config = tmp_path / "openclaw.json"
+    config.write_text('{"gateway": {"bind": "loopback"}}')
+
+    scanner = OpenClawConfigScanner()
+    facts = scanner.scan([config])
+
+    fact_map = {f.key: f.value for f in facts}
+    assert fact_map["tools.shell_enabled"] is True
+    shell_fact = [f for f in facts if f.key == "tools.shell_enabled"][0]
+    assert "defaulted" in shell_fact.source
+
+
+def test_no_commands_bash_with_profile_full(tmp_path):
+    """No commands.bash but tools.profile=full → shell enabled from profile."""
+    config = tmp_path / "openclaw.json"
+    config.write_text('{"gateway": {"bind": "loopback"}, "tools": {"profile": "full"}}')
+
+    scanner = OpenClawConfigScanner()
+    facts = scanner.scan([config])
+
+    fact_map = {f.key: f.value for f in facts}
+    assert fact_map["tools.shell_enabled"] is True
+    shell_fact = [f for f in facts if f.key == "tools.shell_enabled"][0]
+    assert "defaulted" not in shell_fact.source
+
+
 def test_yaml_and_json_can_coexist():
     """Scanner should handle a mix of YAML and JSON config files."""
     scanner = OpenClawConfigScanner()

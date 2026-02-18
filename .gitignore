@@ -55,3 +55,13 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local artifacts (screenshots, images, research docs)
+*.png
+*.jpg
+*.jpeg
+*.docx
+*.pdf
+Resources/
+README.old.md
+tmp_*.sh

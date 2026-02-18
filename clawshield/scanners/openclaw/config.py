@@ -130,22 +130,34 @@ def _extract_json_facts(config: dict, source: str) -> list[Fact]:
     else:
         facts.append(Fact(key="sandbox.enabled", value=False, source=defaulted))
 
-    # tools.profile + tools.deny → tools.shell_enabled (default profile: "full")
-    tools_profile = _deep_get(config, "tools.profile")
+    # tools.shell_enabled — precedence: commands.bash → tools.deny → tools.profile → default
     tools_deny = _deep_get(config, "tools.deny") or []
     deny_set = {str(d).strip().lower() for d in tools_deny}
     shell_denied = bool(_SHELL_TOOLS & deny_set)
 
-    if tools_profile is not None:
-        profile = str(tools_profile).strip().lower()
+    commands_bash = _deep_get(config, "commands.bash")
+    if isinstance(commands_bash, bool):
+        # Authoritative: commands.bash is the real gate (e.g. Hostinger configs)
+        shell_enabled = commands_bash and not shell_denied
+        shell_src = source
+    elif shell_denied:
+        # Explicit deny list overrides profile inference
+        shell_enabled = False
         shell_src = source
     else:
-        profile = "full"
-        shell_src = defaulted
+        # Infer from tools.profile (default: "full" → shell enabled)
+        tools_profile = _deep_get(config, "tools.profile")
+        if tools_profile is not None:
+            profile = str(tools_profile).strip().lower()
+            shell_src = source
+        else:
+            profile = "full"
+            shell_src = defaulted
+        shell_enabled = profile in _SHELL_PROFILES
 
     facts.append(Fact(
         key="tools.shell_enabled",
-        value=profile in _SHELL_PROFILES and not shell_denied,
+        value=shell_enabled,
         source=shell_src,
     ))
 
