@@ -111,7 +111,17 @@
 - **Secure PyPI workflow**: Set up `.pypirc` for credential storage (no more pasting tokens in chat)
 - Tests: 94 → 126+
 
-### VPS Hardening — In Progress (2026-02-17)
+### v0.4.1 — Scanner Fix (2026-02-18)
+
+- **Bug fix**: `commands.bash: false` was ignored by scanner, causing false positive TOOL-001 on Hostinger OpenClaw configs
+- **New precedence logic**: `commands.bash` (authoritative) → `tools.deny` → `tools.profile` → documented default
+- 5 new scanner tests, 130 total passing
+- `.gitignore` updated to exclude local artifacts (images, PDFs, temp scripts)
+- Secret scan verified: no credentials in tracked files
+- **Published to PyPI**: https://pypi.org/project/clawshield/0.4.1/
+- **VPS updated** to v0.4.1 from PyPI, baseline scan saved at `~/clawshield-baseline.json`
+
+### VPS Hardening — COMPLETE (2026-02-17 → 2026-02-18)
 
 #### Setup
 - Provisioned Hostinger VPS with OpenClaw pre-installed template
